@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🚀 Crypto Monitor</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-800">
+  <header class="bg-gradient-to-r from-blue-500 to-purple-600 py-6 mb-6">
+    <h1 class="text-3xl font-extrabold text-center text-white">🚀 Monitor de Criptomoedas</h1>
+  </header>
+
+  <main class="container mx-auto px-4">
+    
+    <section>
+      <h2 class="text-xl font-semibold mb-2">Escolha suas Criptomoedas:</h2>
+      <div id="crypto-list" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        
+      </div>
+      <button id="subscribe" class="mt-4 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md transition">Subscrever</button>
+    </section>
+
+    
+    <section class="mt-8">
+      <h2 class="text-xl font-semibold mb-4">Preços em Tempo Real:</h2>
+      <div id="cards" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+    </section>
+
+    
+    <section class="mt-8">
+      <h2 class="text-xl font-semibold mb-2">Log de Eventos:</h2>
+      <div id="log" class="bg-white shadow-md rounded-md p-4 h-64 overflow-y-auto"></div>
+    </section>
+  </main>
+
+  <script>
+    const coins = ['btcusdt','ethusdt','adausdt','bnbusdt','xrpusdt','solusdt','dogeusdt','dotusdt','ltcusdt','linkusdt'];
+    const cryptoList = document.getElementById('crypto-list');
+    const cardsContainer = document.getElementById('cards');
+    const logContainer = document.getElementById('log');
+    let ws;
+
+   
+    coins.forEach(sym => {
+      const display = sym.toUpperCase();
+      const btn = document.createElement('button');
+      btn.textContent = display;
+      btn.dataset.symbol = sym;
+      btn.className = 'py-2 px-3 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none';
+      btn.addEventListener('click', () => btn.classList.toggle('bg-blue-100'));
+      cryptoList.appendChild(btn);
+    });
+
+    document.getElementById('subscribe').addEventListener('click', () => {
+      const selected = Array.from(cryptoList.querySelectorAll('button')).
+        filter(b => b.classList.contains('bg-blue-100')).
+        map(b => b.dataset.symbol);
+      if (!selected.length) return alert('Selecione ao menos uma criptomoeda.');
+
+      
+      if (ws) ws.close();
+      cardsContainer.innerHTML = '';
+      log('🔄 Iniciando conexão...');
+
+      const streams = selected.map(s => `${s}@trade`).join('/');
+      ws = new WebSocket(`wss://stream.binance.com:9443/ws/${streams}`);
+
+      
+      selected.forEach(sym => {
+        const card = document.createElement('div');
+        card.id = `card-${sym}`;
+        card.className = 'bg-white rounded-lg shadow p-4 flex flex-col items-center';
+        card.innerHTML = `<h3 class="font-bold">${sym.toUpperCase()}</h3><p class="text-2xl mt-2">-</p>`;
+        cardsContainer.appendChild(card);
+      });
+
+      ws.onopen = () => log(`✅ Conectado: ${selected.join(', ').toUpperCase()}`);
+      ws.onmessage = ({ data }) => {
+        const d = JSON.parse(data);
+        const sym = d.s.toLowerCase();
+        const price = parseFloat(d.p).toFixed(2);
+        
+        const card = document.getElementById(`card-${sym}`);
+        if (card) card.querySelector('p').textContent = `$ ${price}`;
+        
+        log(`[${d.s}] $${price}`);
+      };
+      ws.onclose = () => log('🔴 Desconectado');
+      ws.onerror = err => log('❌ Erro: ' + err.message);
+    });
+
+    function log(msg) {
+      const p = document.createElement('p');
+      p.textContent = `${new Date().toLocaleTimeString()} - ${msg}`;
+      logContainer.prepend(p);
+    }
+  </script>
+</body>
+</html>
